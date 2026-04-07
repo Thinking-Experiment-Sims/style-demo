@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Style Demo — The Thinking Experiment</title>
+    <meta name="description" content="Style reference demo for The Thinking Experiment physics simulations.">
+    <link rel="stylesheet" href="src/css/app.css">
+</head>
+
+<body>
+
+    <!-- Header -->
+    <header class="app-header">
+        <div class="header-left">
+            <h1>🔬 Lorem Physics Demo</h1>
+            <p class="author">By Vladimir Lopez</p>
+        </div>
+        <div class="header-right">
+            <button id="quizBtn" class="header-btn quiz-btn">❓ Check Understanding</button>
+            <button id="helpBtn" class="header-btn">💡 Help</button>
+        </div>
+    </header>
+
+    <div class="container">
+        <main>
+
+            <!-- LEFT PANEL -->
+            <aside class="controls-section">
+                <h2>⚙️ Controls</h2>
+
+                <div class="instructions">
+                    <h3>📖 How to Use:</h3>
+                    <ol>
+                        <li>Adjust <strong>particle count</strong> and <strong>speed</strong></li>
+                        <li>Toggle <strong>gravity</strong> and <strong>trails</strong></li>
+                        <li>Try the <strong>presets</strong> for different scenarios</li>
+                        <li>Watch the <strong>data panel</strong> update live</li>
+                    </ol>
+                </div>
+
+                <!-- Sliders -->
+                <div class="control-group">
+                    <label for="countSlider">
+                        <span>Particle Count</span>
+                        <span id="countValue" class="value-display">20</span>
+                    </label>
+                    <input type="range" id="countSlider" min="5" max="60" value="20" step="1">
+                </div>
+
+                <div class="control-group">
+                    <label for="speedSlider">
+                        <span>Speed Multiplier</span>
+                        <span id="speedValue" class="value-display">1.0×</span>
+                    </label>
+                    <input type="range" id="speedSlider" min="0.1" max="4" value="1" step="0.1">
+                </div>
+
+                <div class="control-group">
+                    <label for="sizeSlider">
+                        <span>Particle Size</span>
+                        <span id="sizeValue" class="value-display">12 px</span>
+                    </label>
+                    <input type="range" id="sizeSlider" min="4" max="30" value="12" step="1">
+                </div>
+
+                <!-- Toggle Switches -->
+                <h3>🛠️ Options</h3>
+                <div class="toggle-group">
+                    <div class="toggle-item">
+                        <label for="gravityToggle">
+                            <span class="icon">🌍</span>
+                            <span>Gravity</span>
+                        </label>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="gravityToggle">
+                            <span class="toggle-slider"></span>
+                        </div>
+                    </div>
+                    <div class="toggle-item">
+                        <label for="trailsToggle">
+                            <span class="icon">✨</span>
+                            <span>Trails</span>
+                        </label>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="trailsToggle" checked>
+                            <span class="toggle-slider"></span>
+                        </div>
+                    </div>
+                    <div class="toggle-item">
+                        <label for="colorToggle">
+                            <span class="icon">🎨</span>
+                            <span>Color by Speed</span>
+                        </label>
+                        <div class="toggle-switch">
+                            <input type="checkbox" id="colorToggle" checked>
+                            <span class="toggle-slider"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div style="display:flex; gap:8px; margin-top:16px;">
+                    <button id="resetBtn" class="btn-primary" style="flex:1;">🔄 Reset</button>
+                    <button id="pauseBtn" class="btn-secondary" style="flex:1;">⏸ Pause</button>
+                </div>
+            </aside>
+
+            <!-- CENTER PANEL -->
+            <section class="visualization-section">
+                <h2>📊 Simulation</h2>
+
+                <div class="viz-controls">
+                    <button id="trailsBtn" class="viz-btn active">✨ Trails</button>
+                    <button id="gridBtn" class="viz-btn">📐 Grid</button>
+
+                    <!-- Presets dropdown -->
+                    <div class="dropdown-container">
+                        <button id="menuBtn" class="viz-btn">📋 Presets ▼</button>
+                        <div id="dropdownMenu" class="dropdown-menu">
+                            <div class="menu-section">
+                                <button class="menu-item" data-preset="calm">🌊 Calm Drift</button>
+                                <button class="menu-item" data-preset="chaos">⚡ Chaos</button>
+                                <button class="menu-item" data-preset="gravity">🌍 Gravity Well</button>
+                                <button class="menu-item" data-preset="sparse">🔭 Sparse</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button id="resetBtn2" class="viz-btn">🔄 Reset</button>
+                </div>
+
+                <!-- Canvas + HUD -->
+                <div id="canvasContainer">
+                    <div class="hud-layer">
+                        <div class="hud-panel hud-top-left">
+                            <div class="force-row">
+                                <span class="label applied">Particles:</span>
+                                <span id="hudCount" class="force-number">20</span>
+                            </div>
+                            <div class="force-row">
+                                <span class="label friction">Avg Speed:</span>
+                                <span id="hudSpeed" class="force-number">0.0</span>
+                            </div>
+                            <div class="force-row divider">
+                                <span class="label net">FPS:</span>
+                                <span id="hudFps" class="force-number">60</span>
+                            </div>
+                        </div>
+
+                        <div class="hud-panel hud-top-right">
+                            <div class="velocimeter-compact">
+                                <div id="velocityDisplay" class="velocity-value">
+                                    0.0 <span class="unit">m/s</span>
+                                </div>
+                                <div class="velocimeter-gauge-mini">
+                                    <div id="velocimeterNeedle" class="needle"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="hud-panel hud-bottom-left">
+                            <div class="legend-compact">
+                                <div class="legend-item">
+                                    <div class="dot applied"></div> Fast
+                                </div>
+                                <div class="legend-item">
+                                    <div class="dot air"></div> Medium
+                                </div>
+                                <div class="legend-item">
+                                    <div class="dot normal"></div> Slow
+                                </div>
+                                <div class="legend-item">
+                                    <div class="dot gravity"></div> Gravity
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Direction/intensity slider -->
+                <div class="direction-control" style="padding:12px 0 0;">
+                    <div class="direction-slider-container">
+                        <div class="slider-labels" style="display:flex;justify-content:space-between;font-size:0.8em;color:var(--text-secondary);margin-bottom:6px;">
+                            <span>← Repel</span>
+                            <span>OFF</span>
+                            <span>Attract →</span>
+                        </div>
+                        <input type="range" id="forceSlider" class="bidirectional" min="-100" max="100" value="0" step="1">
+                        <div style="text-align:center;margin-top:8px;font-size:0.85rem;color:var(--text-secondary);">
+                            Field Strength: <span id="forceValue" class="monospace text-primary">0</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="helpModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>🔬 Lorem Physics — Help</h2>
+            <div class="modal-body">
+                <h3>What is this?</h3>
+                <p>This is a <strong>style reference demo</strong> for The Thinking Experiment simulation design system. Every UI component you see here is available via <code>sim-core.css</code>.</p>
+
+                <h3>Components shown</h3>
+                <ul>
+                    <li>Header with action buttons</li>
+                    <li>Left controls panel — sliders, toggles, buttons</li>
+                    <li>Canvas container with HUD overlay</li>
+                    <li>Viz toolbar with dropdown presets</li>
+                    <li>Bidirectional slider</li>
+                    <li>Modals (this one) and quiz</li>
+                    <li>Footer</li>
+                </ul>
+
+                <h3>Keyboard shortcuts</h3>
+                <ul>
+                    <li><strong>Space</strong> — Pause / Resume</li>
+                    <li><strong>R</strong> — Reset particles</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quiz Modal -->
+    <div id="quizModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal">&times;</span>
+            <h2>🧠 Quick Check</h2>
+            <div id="quizContainer">
+                <div class="quiz-question active" data-q="1">
+                    <h3>Question 1 / 2</h3>
+                    <p>When gravity is OFF and no forces act on a particle, what happens to its velocity?</p>
+                    <div class="quiz-options">
+                        <button class="quiz-opt" onclick="checkAnswer(this, false)">It slowly decreases to zero</button>
+                        <button class="quiz-opt" onclick="checkAnswer(this, true)">It stays constant (Newton's 1st Law)</button>
+                        <button class="quiz-opt" onclick="checkAnswer(this, false)">It increases over time</button>
+                    </div>
+                    <div class="feedback"></div>
+                    <button class="next-btn hidden" onclick="nextQuestion(1)">Next ➡️</button>
+                </div>
+
+                <div class="quiz-question" data-q="2">
+                    <h3>Question 2 / 2</h3>
+                    <p>If you double the speed multiplier, the kinetic energy of each particle…</p>
+                    <div class="quiz-options">
+                        <button class="quiz-opt" onclick="checkAnswer(this, false)">Doubles</button>
+                        <button class="quiz-opt" onclick="checkAnswer(this, true)">Quadruples (KE ∝ v²)</button>
+                        <button class="quiz-opt" onclick="checkAnswer(this, false)">Stays the same</button>
+                    </div>
+                    <div class="feedback"></div>
+                    <button class="next-btn hidden" onclick="closeQuiz()">Finish 🎉</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+        <p>© 2026 Vladimir Lopez · Style reference demo for The Thinking Experiment ·
+            <a href="https://github.com/Thinking-Experiment-Sims" target="_blank" rel="noopener">GitHub</a>
+        </p>
+    </footer>
+
+    <!-- p5.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/p5.min.js"></script>
+    <script src="src/js/sketch.js"></script>
+    <script src="src/js/main.js"></script>
+</body>
+</html>
