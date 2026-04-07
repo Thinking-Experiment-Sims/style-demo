@@ -1,183 +1,148 @@
 // sketch.js — p5.js bouncing-particle simulation
 
 let particles = [];
-let config = {
-    count: 20,
-    speed: 1.0,
-    size: 12,
-    gravity: false,
-    trails: true,
-    colorBySpeed: true,
-    paused: false,
-    showGrid: false,
-    fieldStrength: 0,
-};
-
+let simRunning = false;
+let simTime = 0;
+let collisionCount = 0;
 let fpsHistory = [];
 
+let cfg = {
+  count: 20, speed: 1.0, size: 12,
+  gravity: false, trails: true, colorBySpeed: true,
+};
+
 class Particle {
-    constructor(w, h) {
-        this.reset(w, h);
+  constructor(w, h) { this.init(w, h); }
+
+  init(w, h) {
+    this.x = random(30, w - 30);
+    this.y = random(30, h - 30);
+    const angle = random(TWO_PI);
+    const spd = random(0.8, 2.2) * cfg.speed;
+    this.vx = cos(angle) * spd;
+    this.vy = sin(angle) * spd;
+    this.r = cfg.size;
+    this.trail = [];
+  }
+
+  update(w, h) {
+    if (cfg.gravity) this.vy += 0.12;
+
+    const maxSpd = 7 * cfg.speed;
+    const spd = sqrt(this.vx ** 2 + this.vy ** 2);
+    if (spd > maxSpd) { this.vx *= maxSpd / spd; this.vy *= maxSpd / spd; }
+
+    if (cfg.trails) {
+      this.trail.push({ x: this.x, y: this.y });
+      if (this.trail.length > 16) this.trail.shift();
+    } else {
+      this.trail = [];
     }
 
-    reset(w, h) {
-        this.x = random(20, w - 20);
-        this.y = random(20, h - 20);
-        const angle = random(TWO_PI);
-        const spd = random(0.8, 2.5) * config.speed;
-        this.vx = cos(angle) * spd;
-        this.vy = sin(angle) * spd;
-        this.baseRadius = config.size;
-        this.hue = random(360);
-        this.trail = [];
+    this.x += this.vx; this.y += this.vy;
+
+    if (this.x < this.r)     { this.x = this.r;     this.vx *= -1; collisionCount++; }
+    if (this.x > w - this.r) { this.x = w - this.r; this.vx *= -1; collisionCount++; }
+    if (this.y < this.r)     { this.y = this.r;     this.vy *= -1; collisionCount++; }
+    if (this.y > h - this.r) { this.y = h - this.r; this.vy *= -1; collisionCount++; }
+  }
+
+  draw(isDark) {
+    const spd = sqrt(this.vx ** 2 + this.vy ** 2);
+    const t = constrain(spd / (7 * cfg.speed), 0, 1);
+
+    let col;
+    if (cfg.colorBySpeed) {
+      if (isDark) {
+        // dark: blue → gold
+        col = t < 0.5
+          ? lerpColor(color('#2196F3'), color('#00BCD4'), t * 2)
+          : lerpColor(color('#00BCD4'), color('#c8a24a'), (t - 0.5) * 2);
+      } else {
+        // light: teal → warm orange
+        col = t < 0.5
+          ? lerpColor(color('#0f7e9b'), color('#1ab5d0'), t * 2)
+          : lerpColor(color('#1ab5d0'), color('#d67b19'), (t - 0.5) * 2);
+      }
+    } else {
+      col = isDark ? color('#c8a24a') : color('#0f7e9b');
     }
 
-    update(w, h) {
-        if (config.gravity) this.vy += 0.08;
-
-        // Central field force
-        if (config.fieldStrength !== 0) {
-            const cx = w / 2, cy = h / 2;
-            const dx = cx - this.x, dy = cy - this.y;
-            const dist = max(sqrt(dx * dx + dy * dy), 1);
-            const f = (config.fieldStrength / 100) * 0.3;
-            this.vx += (dx / dist) * f;
-            this.vy += (dy / dist) * f;
-        }
-
-        // Speed cap
-        const spd = sqrt(this.vx * this.vx + this.vy * this.vy);
-        const maxSpd = 6 * config.speed;
-        if (spd > maxSpd) {
-            this.vx = (this.vx / spd) * maxSpd;
-            this.vy = (this.vy / spd) * maxSpd;
-        }
-
-        if (config.trails) {
-            this.trail.push({ x: this.x, y: this.y });
-            if (this.trail.length > 18) this.trail.shift();
-        } else {
-            this.trail = [];
-        }
-
-        this.x += this.vx;
-        this.y += this.vy;
-
-        // Bounce off walls
-        const r = this.baseRadius;
-        if (this.x < r)       { this.x = r;     this.vx *= -1; }
-        if (this.x > w - r)   { this.x = w - r; this.vx *= -1; }
-        if (this.y < r)       { this.y = r;     this.vy *= -1; }
-        if (this.y > h - r)   { this.y = h - r; this.vy *= -1; }
+    // Trail
+    if (cfg.trails && this.trail.length > 1) {
+      noFill();
+      for (let i = 1; i < this.trail.length; i++) {
+        const a = map(i, 0, this.trail.length, 0, 70);
+        stroke(red(col), green(col), blue(col), a);
+        strokeWeight(map(i, 0, this.trail.length, 1, this.r * 0.5));
+        line(this.trail[i-1].x, this.trail[i-1].y, this.trail[i].x, this.trail[i].y);
+      }
     }
 
-    draw() {
-        const spd = sqrt(this.vx * this.vx + this.vy * this.vy);
-        const maxSpd = 6 * config.speed;
-        const t = constrain(spd / maxSpd, 0, 1);
+    noStroke();
+    // Glow
+    fill(red(col), green(col), blue(col), isDark ? 35 : 25);
+    ellipse(this.x, this.y, this.r * 2.6);
+    // Body
+    fill(col);
+    ellipse(this.x, this.y, this.r * 2);
+  }
 
-        let col;
-        if (config.colorBySpeed) {
-            // slow=blue → medium=cyan → fast=orange
-            if (t < 0.5) {
-                col = lerpColor(color('#2196F3'), color('#00BCD4'), t * 2);
-            } else {
-                col = lerpColor(color('#00BCD4'), color('#FF9800'), (t - 0.5) * 2);
-            }
-        } else {
-            colorMode(HSB, 360, 100, 100, 100);
-            col = color(this.hue, 80, 90, 100);
-            colorMode(RGB, 255, 255, 255, 255);
-        }
-
-        // Trail
-        if (config.trails && this.trail.length > 1) {
-            noFill();
-            for (let i = 1; i < this.trail.length; i++) {
-                const alpha = map(i, 0, this.trail.length, 0, 80);
-                stroke(red(col), green(col), blue(col), alpha);
-                strokeWeight(map(i, 0, this.trail.length, 1, this.baseRadius * 0.6));
-                line(this.trail[i - 1].x, this.trail[i - 1].y, this.trail[i].x, this.trail[i].y);
-            }
-        }
-
-        // Glow
-        noStroke();
-        fill(red(col), green(col), blue(col), 40);
-        ellipse(this.x, this.y, this.baseRadius * 2.8);
-
-        // Body
-        fill(col);
-        ellipse(this.x, this.y, this.baseRadius * 2);
-    }
-
-    speed() {
-        return sqrt(this.vx * this.vx + this.vy * this.vy);
-    }
+  speed() { return sqrt(this.vx ** 2 + this.vy ** 2); }
 }
 
 function setup() {
-    const container = document.getElementById('canvasContainer');
-    const cnv = createCanvas(container.offsetWidth, container.offsetHeight);
-    cnv.parent('canvasContainer');
-    spawnParticles();
+  const cnv = createCanvas(980, 480);
+  cnv.parent('simCanvas');
+  // Replace the placeholder canvas element with ours
+  const placeholder = document.getElementById('simCanvas');
+  if (placeholder && placeholder !== cnv.elt) {
+    placeholder.replaceWith(cnv.elt);
+    cnv.elt.id = 'simCanvas';
+    cnv.elt.className = 'sim-canvas';
+    cnv.elt.setAttribute('role','img');
+  }
+  noLoop();
+  spawnParticles();
 }
 
 function draw() {
-    if (config.paused) return;
+  const isDark = document.body.dataset.theme === 'dark';
 
-    // Background fade (trails effect)
-    if (config.trails) {
-        fill(13, 17, 23, 40);
-        noStroke();
-        rect(0, 0, width, height);
-    } else {
-        background(13, 17, 23);
-    }
+  if (isDark) {
+    if (cfg.trails) { fill(15, 20, 28, 35); noStroke(); rect(0,0,width,height); }
+    else background(15, 20, 28);
+  } else {
+    if (cfg.trails) { fill(248, 252, 255, 45); noStroke(); rect(0,0,width,height); }
+    else background(248, 252, 255);
+  }
 
-    // Grid
-    if (config.showGrid) drawGrid();
+  if (simRunning) simTime += deltaTime / 1000;
 
-    particles.forEach(p => { p.update(width, height); p.draw(); });
+  particles.forEach(p => { if (simRunning) p.update(width, height); p.draw(isDark); });
 
-    updateHUD();
+  fpsHistory.push(frameRate());
+  if (fpsHistory.length > 30) fpsHistory.shift();
+
+  updateMetrics();
 }
 
-function drawGrid() {
-    stroke(58, 65, 73, 80);
-    strokeWeight(1);
-    const step = 40;
-    for (let x = 0; x < width; x += step)  line(x, 0, x, height);
-    for (let y = 0; y < height; y += step) line(0, y, width,  y);
-}
+function updateMetrics() {
+  const avgSpd = particles.reduce((s, p) => s + p.speed(), 0) / (particles.length || 1);
+  const fps = fpsHistory.reduce((a, b) => a + b, 0) / (fpsHistory.length || 1);
 
-function updateHUD() {
-    fpsHistory.push(frameRate());
-    if (fpsHistory.length > 30) fpsHistory.shift();
-    const avgFps = fpsHistory.reduce((a, b) => a + b, 0) / fpsHistory.length;
-
-    const avgSpd = particles.reduce((s, p) => s + p.speed(), 0) / (particles.length || 1);
-
-    document.getElementById('hudCount').textContent = particles.length;
-    document.getElementById('hudSpeed').textContent = avgSpd.toFixed(1);
-    document.getElementById('hudFps').textContent = avgFps.toFixed(0);
-    document.getElementById('velocityDisplay').innerHTML = avgSpd.toFixed(1) + ' <span class="unit">u/s</span>';
-
-    // Gauge needle: map avgSpd (0-6) to -90 to +90 degrees
-    const maxSpd = 6 * config.speed;
-    const angle = map(avgSpd, 0, maxSpd, -90, 90);
-    document.getElementById('velocimeterNeedle').style.transform =
-        `translateX(-50%) rotate(${angle}deg)`;
+  document.getElementById('metricCount').textContent  = particles.length;
+  document.getElementById('metricSpeed').textContent  = avgSpd.toFixed(2) + ' u/s';
+  document.getElementById('metricFps').textContent    = fps.toFixed(0);
+  document.getElementById('metricGravity').textContent = cfg.gravity ? 'ON' : 'OFF';
+  document.getElementById('metricTime').textContent   = simTime.toFixed(1) + ' s';
+  document.getElementById('metricCollisions').textContent = collisionCount;
 }
 
 function spawnParticles() {
-    particles = [];
-    for (let i = 0; i < config.count; i++) {
-        particles.push(new Particle(width, height));
-    }
+  particles = Array.from({ length: cfg.count }, () => new Particle(width, height));
+  collisionCount = 0;
+  simTime = 0;
 }
 
-function windowResized() {
-    const container = document.getElementById('canvasContainer');
-    resizeCanvas(container.offsetWidth, container.offsetHeight);
-}
+function windowResized() { /* canvas size is fixed */ }

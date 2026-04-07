@@ -1,165 +1,151 @@
 // main.js — UI wiring
 
-// ── Sliders ──────────────────────────────────────────────────────────────────
-const countSlider = document.getElementById('countSlider');
-const speedSlider = document.getElementById('speedSlider');
-const sizeSlider  = document.getElementById('sizeSlider');
-const forceSlider = document.getElementById('forceSlider');
+// ── Theme Toggle ──────────────────────────────────────────────
+const themeBtn = document.getElementById('themeToggle');
+const savedTheme = localStorage.getItem('te-theme') || 'light';
+if (savedTheme === 'dark') applyTheme('dark');
 
-countSlider.addEventListener('input', () => {
-    config.count = +countSlider.value;
-    document.getElementById('countValue').textContent = config.count;
-    spawnParticles();
+themeBtn.addEventListener('click', () => {
+  const next = document.body.dataset.theme === 'dark' ? 'light' : 'dark';
+  applyTheme(next);
+  localStorage.setItem('te-theme', next);
 });
 
-speedSlider.addEventListener('input', () => {
-    config.speed = +speedSlider.value;
-    document.getElementById('speedValue').textContent = config.speed.toFixed(1) + '×';
+function applyTheme(t) {
+  document.body.dataset.theme = t;
+  themeBtn.textContent = t === 'dark' ? 'Light mode' : 'Dark mode';
+}
+
+// ── Sliders ───────────────────────────────────────────────────
+document.getElementById('speedSlider').addEventListener('input', function () {
+  cfg.speed = +this.value;
+  document.getElementById('speedValue').textContent = (+this.value).toFixed(1) + '×';
 });
 
-sizeSlider.addEventListener('input', () => {
-    config.size = +sizeSlider.value;
-    document.getElementById('sizeValue').textContent = config.size + ' px';
-    particles.forEach(p => p.baseRadius = config.size);
+document.getElementById('sizeSlider').addEventListener('input', function () {
+  cfg.size = +this.value;
+  document.getElementById('sizeValue').textContent = this.value + ' px';
+  particles.forEach(p => p.r = cfg.size);
 });
 
-forceSlider.addEventListener('input', () => {
-    config.fieldStrength = +forceSlider.value;
-    document.getElementById('forceValue').textContent = config.fieldStrength;
+document.getElementById('countInput').addEventListener('change', function () {
+  cfg.count = Math.min(60, Math.max(5, +this.value));
+  this.value = cfg.count;
+  spawnParticles();
 });
 
-// ── Toggles ───────────────────────────────────────────────────────────────────
-document.getElementById('gravityToggle').addEventListener('change', e => {
-    config.gravity = e.target.checked;
+// ── Toggles ───────────────────────────────────────────────────
+document.getElementById('gravityToggle').addEventListener('change', function () {
+  cfg.gravity = this.checked;
 });
-document.getElementById('trailsToggle').addEventListener('change', e => {
-    config.trails = e.target.checked;
+document.getElementById('trailsToggle').addEventListener('change', function () {
+  cfg.trails = this.checked;
 });
-document.getElementById('colorToggle').addEventListener('change', e => {
-    config.colorBySpeed = e.target.checked;
-});
-
-// ── Viz toolbar buttons ───────────────────────────────────────────────────────
-document.getElementById('trailsBtn').addEventListener('click', function () {
-    config.trails = !config.trails;
-    document.getElementById('trailsToggle').checked = config.trails;
-    this.classList.toggle('active', config.trails);
+document.getElementById('colorToggle').addEventListener('change', function () {
+  cfg.colorBySpeed = this.checked;
 });
 
-document.getElementById('gridBtn').addEventListener('click', function () {
-    config.showGrid = !config.showGrid;
-    this.classList.toggle('active', config.showGrid);
+// ── Sim Controls ──────────────────────────────────────────────
+const statusEl = document.getElementById('statusText');
+
+document.getElementById('startBtn').addEventListener('click', () => {
+  simRunning = true;
+  loop();
+  setStatus('Simulation running…');
 });
 
-// ── Reset / Pause ─────────────────────────────────────────────────────────────
-function doReset() { spawnParticles(); }
-
-document.getElementById('resetBtn').addEventListener('click', doReset);
-document.getElementById('resetBtn2').addEventListener('click', doReset);
-
-const pauseBtn = document.getElementById('pauseBtn');
-pauseBtn.addEventListener('click', () => {
-    config.paused = !config.paused;
-    pauseBtn.textContent = config.paused ? '▶ Resume' : '⏸ Pause';
+document.getElementById('pauseBtn').addEventListener('click', () => {
+  simRunning = !simRunning;
+  document.getElementById('pauseBtn').textContent = simRunning ? 'Pause' : 'Resume';
+  setStatus(simRunning ? 'Simulation running…' : 'Paused.');
 });
 
-// Keyboard shortcuts
-document.addEventListener('keydown', e => {
-    if (e.code === 'Space') { e.preventDefault(); pauseBtn.click(); }
-    if (e.key === 'r' || e.key === 'R') doReset();
+document.getElementById('resetBtn').addEventListener('click', () => {
+  simRunning = false;
+  document.getElementById('pauseBtn').textContent = 'Pause';
+  noLoop();
+  spawnParticles();
+  redraw();
+  setStatus('Reset — press Start to begin.');
 });
 
-// ── Dropdown ──────────────────────────────────────────────────────────────────
-const menuBtn      = document.getElementById('menuBtn');
-const dropdownMenu = document.getElementById('dropdownMenu');
+function setStatus(msg, type = '') {
+  statusEl.textContent = msg;
+  statusEl.className = 'status' + (type ? ' ' + type : '');
+}
 
-menuBtn.addEventListener('click', e => {
-    e.stopPropagation();
-    dropdownMenu.classList.toggle('open');
-});
-document.addEventListener('click', () => dropdownMenu.classList.remove('open'));
-
+// ── Presets ───────────────────────────────────────────────────
 const presets = {
-    calm:    { count: 15, speed: 0.5, size: 14, gravity: false, trails: true  },
-    chaos:   { count: 50, speed: 3.0, size: 8,  gravity: false, trails: false },
-    gravity: { count: 30, speed: 1.5, size: 10, gravity: true,  trails: true  },
-    sparse:  { count: 6,  speed: 1.2, size: 20, gravity: false, trails: true  },
+  calm:    { count: 15, speed: 0.5, size: 14, gravity: false, trails: true  },
+  chaos:   { count: 50, speed: 3.0, size: 8,  gravity: false, trails: false },
+  gravity: { count: 30, speed: 1.5, size: 10, gravity: true,  trails: true  },
+  sparse:  { count: 6,  speed: 1.2, size: 22, gravity: false, trails: true  },
 };
 
-document.querySelectorAll('.menu-item[data-preset]').forEach(btn => {
-    btn.addEventListener('click', () => {
-        const p = presets[btn.dataset.preset];
-        if (!p) return;
-        Object.assign(config, p);
-
-        // Sync UI
-        countSlider.value = p.count;
-        document.getElementById('countValue').textContent = p.count;
-        speedSlider.value = p.speed;
-        document.getElementById('speedValue').textContent = p.speed.toFixed(1) + '×';
-        sizeSlider.value = p.size;
-        document.getElementById('sizeValue').textContent = p.size + ' px';
-        document.getElementById('gravityToggle').checked = p.gravity;
-        document.getElementById('trailsToggle').checked  = p.trails;
-
-        spawnParticles();
-        dropdownMenu.classList.remove('open');
-    });
+document.querySelectorAll('[data-preset]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const p = presets[btn.dataset.preset]; if (!p) return;
+    Object.assign(cfg, p);
+    document.getElementById('countInput').value  = p.count;
+    document.getElementById('speedSlider').value = p.speed;
+    document.getElementById('speedValue').textContent = p.speed.toFixed(1) + '×';
+    document.getElementById('sizeSlider').value  = p.size;
+    document.getElementById('sizeValue').textContent  = p.size + ' px';
+    document.getElementById('gravityToggle').checked  = p.gravity;
+    document.getElementById('trailsToggle').checked   = p.trails;
+    spawnParticles();
+    if (simRunning) { /* keep running */ } else { redraw(); }
+    setStatus('Preset loaded: ' + btn.textContent.trim());
+  });
 });
 
-// ── Modals ────────────────────────────────────────────────────────────────────
-function openModal(id) {
-    const m = document.getElementById(id);
-    m.style.display = 'flex';
-    requestAnimationFrame(() => m.classList.add('show'));
-}
-function closeModal(id) {
-    const m = document.getElementById(id);
-    m.classList.remove('show');
-    setTimeout(() => { m.style.display = 'none'; }, 300);
-}
+// ── Record Trials ─────────────────────────────────────────────
+let trialCount = 0;
+const tbody = document.getElementById('trialTableBody');
 
-document.getElementById('helpBtn').addEventListener('click', () => openModal('helpModal'));
-document.getElementById('quizBtn').addEventListener('click', () => openModal('quizModal'));
+document.getElementById('recordBtn').addEventListener('click', () => {
+  const avgSpd = particles.reduce((s, p) => s + p.speed(), 0) / (particles.length || 1);
+  trialCount++;
+  if (trialCount === 1) tbody.innerHTML = '';
 
-document.querySelectorAll('.close-modal').forEach(btn => {
-    btn.addEventListener('click', () => {
-        closeModal('helpModal');
-        closeModal('quizModal');
-    });
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td>${trialCount}</td>
+    <td>${cfg.count}</td>
+    <td>${cfg.speed.toFixed(1)}×</td>
+    <td>${cfg.size}</td>
+    <td>${cfg.gravity ? 'ON' : 'OFF'}</td>
+    <td>${avgSpd.toFixed(2)} u/s</td>
+    <td>—</td>
+  `;
+  tbody.appendChild(tr);
+  setStatus('Trial #' + trialCount + ' recorded.', 'ok');
 });
 
-// Click backdrop to close
-['helpModal', 'quizModal'].forEach(id => {
-    document.getElementById(id).addEventListener('click', function (e) {
-        if (e.target === this) closeModal(id);
-    });
+document.getElementById('clearBtn').addEventListener('click', () => {
+  trialCount = 0;
+  tbody.innerHTML = '<tr><td colspan="7">No trials recorded yet.</td></tr>';
+  setStatus('Table cleared.');
 });
 
-// ── Quiz ──────────────────────────────────────────────────────────────────────
-function checkAnswer(btn, correct) {
-    const question = btn.closest('.quiz-question');
-    question.querySelectorAll('.quiz-opt').forEach(b => b.disabled = true);
-    btn.classList.add(correct ? 'correct' : 'incorrect');
-    if (!correct) {
-        question.querySelectorAll('.quiz-opt').forEach(b => {
-            if (b.onclick?.toString().includes('true')) b.classList.add('correct');
-        });
-    }
-    const feedback = question.querySelector('.feedback');
-    feedback.textContent = correct ? '✅ Correct!' : '❌ Not quite — see the highlighted answer.';
-    feedback.style.color = correct ? 'var(--success)' : 'var(--danger)';
-    question.querySelector('.next-btn').classList.remove('hidden');
-}
+// ── Tabs ──────────────────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected','false'); });
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    btn.setAttribute('aria-selected','true');
+    document.getElementById(btn.dataset.tab + 'Tab').classList.add('active');
+  });
+});
 
-function nextQuestion(current) {
-    document.querySelector(`[data-q="${current}"]`).classList.remove('active');
-    document.querySelector(`[data-q="${current + 1}"]`)?.classList.add('active');
-}
-
-function closeQuiz() { closeModal('quizModal'); }
-
-// Expose quiz helpers globally (used in inline onclick)
-window.checkAnswer = checkAnswer;
-window.nextQuestion = nextQuestion;
-window.closeQuiz = closeQuiz;
+// ── Keyboard shortcuts ────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' && e.target === document.body) {
+    e.preventDefault();
+    document.getElementById('pauseBtn').click();
+  }
+  if ((e.key === 'r' || e.key === 'R') && e.target === document.body) {
+    document.getElementById('resetBtn').click();
+  }
+});
